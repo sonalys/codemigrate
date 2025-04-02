@@ -33,7 +33,7 @@ func (m *migration_0001) Down(ctx context.Context, tx *adapter.Versioner) error 
 	return nil
 }
 
-func Test_Example(t *testing.T) {
+func Test_Example_Code(t *testing.T) {
 	ctx := t.Context()
 
 	conn, err := pgx.Connect(ctx, "host=localhost port=5432 user=postgres password=postgres dbname=test sslmode=disable")
