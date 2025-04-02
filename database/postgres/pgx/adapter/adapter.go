@@ -57,7 +57,9 @@ func (p *Postgres) Transaction(ctx context.Context, handler func(tx *Versioner) 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	_, err = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS $1 (version BIGINT PRIMARY KEY)", p.config.tableName)
 	if err != nil {

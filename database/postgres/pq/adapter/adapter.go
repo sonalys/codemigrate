@@ -43,7 +43,9 @@ func (p *Postgres[T]) Transaction(ctx context.Context, handler func(tx *Versione
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS $1 (version BIGINT PRIMARY KEY)", p.config.tableName)
 	if err != nil {
@@ -69,7 +71,9 @@ func (p *Versioner[T]) GetCurrentVersion(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to query %s: %w", p.config.tableName, err)
 	}
-	defer row.Close()
+	defer func() {
+		_ = row.Close()
+	}()
 
 	if row.Next() {
 		if err := row.Scan(&version); err != nil {

@@ -46,16 +46,24 @@ func (c customConnection[T]) Transaction(ctx context.Context, handler func(tx T)
 	return c.transaction(ctx, handler)
 }
 
-func Test_Migrator_Up(t *testing.T) {
-	transaction := customTransaction{}
-
-	conn := customConnection[customTransaction]{
-		transaction: func(ctx context.Context, handler func(tx customTransaction) error) error {
-			return handler(transaction)
-		},
-	}
+func Test_Migrator_New(t *testing.T) {
+	t.Run("error: no migrations provided", func(t *testing.T) {
+		conn := customConnection[customTransaction]{
+			transaction: func(ctx context.Context, handler func(tx customTransaction) error) error {
+				return handler(customTransaction{})
+			},
+		}
+		migrator, err := migrate.New(conn)
+		require.ErrorIs(t, err, migrate.ErrNoMigrations)
+		require.Nil(t, migrator)
+	})
 
 	t.Run("error: migration conflict", func(t *testing.T) {
+		conn := customConnection[customTransaction]{
+			transaction: func(ctx context.Context, handler func(tx customTransaction) error) error {
+				return handler(customTransaction{})
+			},
+		}
 		migrator, err := migrate.New(conn,
 			customMigration{version: 1},
 			customMigration{version: 2},
@@ -64,20 +72,16 @@ func Test_Migrator_Up(t *testing.T) {
 		require.ErrorIs(t, err, migrate.ErrDuplicateMigration)
 		require.Nil(t, migrator)
 	})
+}
 
-	t.Run("error: no migrations", func(t *testing.T) {
-		ctx := t.Context()
-		migrator, err := migrate.New(conn)
-		require.NoError(t, err)
-		require.NotNil(t, migrator)
+func Test_Migrator_Up(t *testing.T) {
+	transaction := customTransaction{}
 
-		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
-			return 0, nil
-		}
-
-		err = migrator.Up(ctx, 1)
-		require.ErrorIs(t, err, migrate.ErrNoMigrations)
-	})
+	conn := customConnection[customTransaction]{
+		transaction: func(ctx context.Context, handler func(tx customTransaction) error) error {
+			return handler(transaction)
+		},
+	}
 
 	t.Run("success: up-to-date", func(t *testing.T) {
 		ctx := t.Context()
@@ -190,20 +194,6 @@ func Test_Migrator_Down(t *testing.T) {
 			return handler(transaction)
 		},
 	}
-
-	t.Run("error: no migrations", func(t *testing.T) {
-		ctx := t.Context()
-		migrator, err := migrate.New(conn)
-		require.NoError(t, err)
-		require.NotNil(t, migrator)
-
-		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
-			return 0, nil
-		}
-
-		err = migrator.Down(ctx, 1)
-		require.ErrorIs(t, err, migrate.ErrNoMigrations)
-	})
 
 	t.Run("success: up-to-date", func(t *testing.T) {
 		ctx := t.Context()

@@ -134,7 +134,7 @@ func (m migrator[T]) Down(ctx context.Context, targetVersion int64) error {
 
 func validateMigrations[T Versioner](migrations ...Migration[T]) error {
 	if len(migrations) == 0 {
-		return fmt.Errorf("no migrations provided")
+		return ErrNoMigrations
 	}
 
 	for i := 0; i < len(migrations)-1; i++ {
