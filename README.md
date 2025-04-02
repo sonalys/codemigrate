@@ -76,7 +76,7 @@ if err != nil {
 	log.Fatal(err)
 }
 
-db := adapter.From(conn)
+db := adapter.From(conn, adapter.WithTableName("custom_version_table"))
 
 migrator, err := migrate.New(db, &migration_0001{})
 if err != nil {
