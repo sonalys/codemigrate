@@ -1,5 +1,7 @@
 # CodeMigrate
 
+[![CI](https://github.com/sonalys/codemigrate/actions/workflows/ci.yml/badge.svg)](https://github.com/sonalys/codemigrate/actions/workflows/ci.yml)
+
 CodeMigrate is a Go library designed to simplify database schema migrations. It provides a flexible and extensible framework for managing migrations across different database backends, including PostgreSQL with both `pq` and `pgx` drivers.
 
 ## Features
