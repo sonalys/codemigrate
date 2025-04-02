@@ -46,6 +46,6 @@ func Test_Example(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	err = migrator.Up(ctx)
+	err = migrator.Up(ctx, 1)
 	require.NoError(t, err)
 }
