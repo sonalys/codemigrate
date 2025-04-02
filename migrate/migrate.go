@@ -37,6 +37,8 @@ const (
 	ErrMigrationNotFound = StringError("migration not found")
 	// ErrDuplicateMigration is returned when a duplicate migration version is found.
 	ErrDuplicateMigration = StringError("duplicate migration version")
+
+	Latest int64 = -1
 )
 
 func (e StringError) Error() string {
@@ -74,6 +76,14 @@ func (m Migrator[T]) findNextMigration(currentVersion int64) (int64, Migration[T
 func (m Migrator[T]) Up(ctx context.Context, targetVersion int64) error {
 	db := m.conn
 	var lastAppliedVersion int64
+
+	if len(m.migrations) == 0 {
+		return ErrNoMigrations
+	}
+
+	if targetVersion == Latest {
+		targetVersion = m.migrations[len(m.migrations)-1].Version()
+	}
 
 	for runAgain := true; runAgain; {
 		runAgain = false
