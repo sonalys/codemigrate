@@ -93,7 +93,9 @@ func (p *Versioner[T]) GetCurrentVersion(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to query %s: %w", p.config.tableName, err)
 	}
-	defer row.Close()
+	defer func() {
+		_ = row.Close()
+	}()
 
 	if !row.Next() {
 		return 0, row.Err()

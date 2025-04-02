@@ -20,14 +20,20 @@ func TestPostgres_Transaction(t *testing.T) {
 		postgres.BasicWaitStrategies(),
 	)
 	require.NoError(t, err)
-	defer pgContainer.Terminate(ctx)
+	defer func() {
+		err := pgContainer.Terminate(ctx)
+		require.NoError(t, err)
+	}()
 
 	connStr, err := pgContainer.ConnectionString(ctx)
 	require.NoError(t, err)
 
 	conn, err := pgx.Connect(ctx, connStr)
 	require.NoError(t, err)
-	defer conn.Close(ctx)
+	defer func() {
+		err := conn.Close(ctx)
+		require.NoError(t, err)
+	}()
 
 	pg := adapter.From(conn, adapter.WithTableName("test_migrations"))
 
