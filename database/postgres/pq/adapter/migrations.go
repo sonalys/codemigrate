@@ -66,16 +66,16 @@ func NewScriptMigrationFromReader[T Transaction](version int64, reader io.Reader
 	return migration, nil
 }
 
-func (m *ScriptMigration[T]) Up(ctx context.Context, tx T) error {
-	_, err := tx.Exec(m.script)
+func (m *ScriptMigration[T]) Up(ctx context.Context, tx *Versioner[T]) error {
+	_, err := tx.Tx.Exec(m.script)
 	if err != nil {
 		return fmt.Errorf("failed to apply migration %d: %w", m.version, err)
 	}
 	return nil
 }
 
-func (m *ScriptMigration[T]) Down(ctx context.Context, tx T) error {
-	_, err := tx.Exec(m.script)
+func (m *ScriptMigration[T]) Down(ctx context.Context, tx *Versioner[T]) error {
+	_, err := tx.Tx.Exec(m.script)
 	if err != nil {
 		return fmt.Errorf("failed to revert migration %d: %w", m.version, err)
 	}

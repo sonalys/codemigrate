@@ -17,17 +17,17 @@ type (
 
 	// Database abstracts a database wrapper that can be used to perform transactions.
 	// It's implemented by a database. Example: github.com/sonalys/codemigrate/databases/postgres/pgx/adapter.
-	Database[T Versioner] interface {
-		Transaction(ctx context.Context, handler func(tx T) error) error
+	Database[V Versioner] interface {
+		Transaction(ctx context.Context, handler func(tx V) error) error
 	}
 
 	// Migration abstracts each migration that can be applied to the database.
 	// You can implement this interface to create your own migrations.
-	Migration[T Versioner] interface {
+	Migration[V Versioner] interface {
 		// Up applies the version bump to the database.
-		Up(ctx context.Context, tx T) error
+		Up(ctx context.Context, tx V) error
 		// Down reverts the version bump to the database.
-		Down(ctx context.Context, tx T) error
+		Down(ctx context.Context, tx V) error
 		// Version returns the version of the migration.
 		// It should be unique and positive. It doesn't have to be sequential.
 		// Example: 1, Unix timestamp, etc.
