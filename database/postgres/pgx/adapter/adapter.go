@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -61,8 +62,9 @@ func (p *Postgres) Transaction(ctx context.Context, handler func(tx *Versioner) 
 		_ = tx.Rollback(ctx)
 	}()
 
-	_, err = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS $1 (version BIGINT PRIMARY KEY)", p.config.tableName)
-	if err != nil {
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version BIGINT PRIMARY KEY)", p.config.tableName)
+
+	if _, err = tx.Exec(ctx, query); err != nil {
 		return fmt.Errorf("failed to create %s table: %w", p.config.tableName, err)
 	}
 
@@ -79,29 +81,37 @@ func (p *Postgres) Transaction(ctx context.Context, handler func(tx *Versioner) 
 }
 
 func (p *Versioner) GetCurrentVersion(ctx context.Context) (int64, error) {
-	var version int64
+	query := fmt.Sprintf("SELECT version FROM %s", p.config.tableName)
 
-	row, err := p.Query(ctx, "SELECT version FROM $1", p.config.tableName)
+	row, err := p.Query(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query %s: %w", p.config.tableName, err)
 	}
 	defer row.Close()
 
-	if row.Next() {
-		if err := row.Scan(&version); err != nil {
-			return 0, fmt.Errorf("failed to scan version: %w", err)
-		}
-	} else {
-		return 0, sql.ErrNoRows
+	if !row.Next() {
+		return 0, row.Err()
 	}
 
+	var version int64
+
+	if err := row.Scan(&version); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("failed to scan version: %w", err)
+	}
 	return version, nil
 }
 
 func (p *Versioner) SetVersion(ctx context.Context, version int64) error {
-	_, err := p.Exec(ctx, "UPDATE $1 SET version = $1", p.config.tableName, version)
-	if err != nil {
+	query := fmt.Sprintf("UPDATE %s SET version = $1", p.config.tableName)
+
+	if cmd, err := p.Exec(ctx, query, version); err != nil {
 		return fmt.Errorf("failed to update version: %w", err)
+	} else if cmd.RowsAffected() == 0 {
+		query = fmt.Sprintf("INSERT INTO %s VALUES ($1)", p.config.tableName)
+		_, err := p.Exec(ctx, query, version)
+		if err != nil {
+			return fmt.Errorf("failed to insert default version: %w", err)
+		}
 	}
 	return nil
 }

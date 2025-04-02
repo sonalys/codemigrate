@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -32,10 +33,30 @@ type (
 		Tx     T
 		config Config
 	}
+
+	Option func(*Config)
 )
 
-func From[T Transaction](db Database[T]) *Postgres[T] {
-	return &Postgres[T]{db: db}
+// WithTableName sets the table name for the schema migrations table.
+func WithTableName(name string) Option {
+	return func(p *Config) {
+		p.tableName = name
+	}
+}
+
+func From[T Transaction](db Database[T], opts ...Option) *Postgres[T] {
+	postgres := &Postgres[T]{
+		db: db,
+		config: Config{
+			tableName: "schema_migrations",
+		},
+	}
+
+	for _, opt := range opts {
+		opt(&postgres.config)
+	}
+
+	return postgres
 }
 
 func (p *Postgres[T]) Transaction(ctx context.Context, handler func(tx *Versioner[T]) error) error {
@@ -47,8 +68,9 @@ func (p *Postgres[T]) Transaction(ctx context.Context, handler func(tx *Versione
 		_ = tx.Rollback()
 	}()
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS $1 (version BIGINT PRIMARY KEY)", p.config.tableName)
-	if err != nil {
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version BIGINT PRIMARY KEY)", p.config.tableName)
+
+	if _, err = tx.Exec(query); err != nil {
 		return fmt.Errorf("failed to create %s table: %w", p.config.tableName, err)
 	}
 
@@ -65,31 +87,45 @@ func (p *Postgres[T]) Transaction(ctx context.Context, handler func(tx *Versione
 }
 
 func (p *Versioner[T]) GetCurrentVersion(ctx context.Context) (int64, error) {
-	var version int64
+	query := fmt.Sprintf("SELECT version FROM %s", p.config.tableName)
 
-	row, err := p.Tx.Query("SELECT version FROM $1", p.config.tableName)
+	row, err := p.Tx.Query(query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query %s: %w", p.config.tableName, err)
 	}
-	defer func() {
-		_ = row.Close()
-	}()
+	defer row.Close()
 
-	if row.Next() {
-		if err := row.Scan(&version); err != nil {
-			return 0, fmt.Errorf("failed to scan version: %w", err)
-		}
-	} else {
-		return 0, sql.ErrNoRows
+	if !row.Next() {
+		return 0, row.Err()
 	}
 
+	var version int64
+
+	if err := row.Scan(&version); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("failed to scan version: %w", err)
+	}
 	return version, nil
 }
 
 func (p *Versioner[T]) SetVersion(ctx context.Context, version int64) error {
-	_, err := p.Tx.Exec("UPDATE $1 SET version = $1", p.config.tableName, version)
+	query := fmt.Sprintf("UPDATE %s SET version = $1", p.config.tableName)
+
+	cmd, err := p.Tx.Exec(query, version)
 	if err != nil {
 		return fmt.Errorf("failed to update version: %w", err)
+	}
+
+	rowsAffected, err := cmd.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get exec info: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		query = fmt.Sprintf("INSERT INTO %s VALUES ($1)", p.config.tableName)
+		_, err := p.Tx.Exec(query, version)
+		if err != nil {
+			return fmt.Errorf("failed to insert default version: %w", err)
+		}
 	}
 	return nil
 }
