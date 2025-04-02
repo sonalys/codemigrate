@@ -1,4 +1,4 @@
-package versioner
+package adapter
 
 import (
 	"context"

@@ -14,7 +14,7 @@ type customTransaction struct {
 	setVersion        func(ctx context.Context, version int64) error
 }
 
-type customConnection[T migrate.Transaction] struct {
+type customConnection[T migrate.Versioner] struct {
 	transaction func(ctx context.Context, handler func(tx T) error) error
 }
 
@@ -81,7 +81,9 @@ func Test_Migrator_Up(t *testing.T) {
 
 	t.Run("success: up-to-date", func(t *testing.T) {
 		ctx := t.Context()
-		migrator, err := migrate.New(conn)
+		migrator, err := migrate.New(conn,
+			customMigration{version: 1},
+		)
 		require.NoError(t, err)
 		require.NotNil(t, migrator)
 
@@ -176,6 +178,131 @@ func Test_Migrator_Up(t *testing.T) {
 		}
 
 		err = migrator.Up(ctx, 2)
+		require.ErrorIs(t, err, migrate.ErrMigrationNotFound)
+	})
+}
+
+func Test_Migrator_Down(t *testing.T) {
+	transaction := customTransaction{}
+
+	conn := customConnection[customTransaction]{
+		transaction: func(ctx context.Context, handler func(tx customTransaction) error) error {
+			return handler(transaction)
+		},
+	}
+
+	t.Run("error: no migrations", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return 0, nil
+		}
+
+		err = migrator.Down(ctx, 1)
+		require.ErrorIs(t, err, migrate.ErrNoMigrations)
+	})
+
+	t.Run("success: up-to-date", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn,
+			customMigration{version: 1},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return 3, nil
+		}
+
+		err = migrator.Down(ctx, 3)
+		require.NoError(t, err)
+	})
+
+	t.Run("success: migrates one version down", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn,
+			customMigration{version: 1},
+			customMigration{version: 2},
+			customMigration{version: 3},
+			customMigration{version: 4},
+			customMigration{version: 5},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		count := 0
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return int64(3 - count), nil
+		}
+
+		transaction.setVersion = func(ctx context.Context, version int64) error {
+			count++
+			require.EqualValues(t, 3-count, version)
+			return nil
+		}
+
+		err = migrator.Down(ctx, 2)
+		require.NoError(t, err)
+	})
+
+	t.Run("success: migrates multiple versions down", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn,
+			customMigration{version: 1},
+			customMigration{version: 2},
+			customMigration{version: 3},
+			customMigration{version: 4},
+			customMigration{version: 5},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		count := 0
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return int64(5 - count), nil
+		}
+		transaction.setVersion = func(ctx context.Context, version int64) error {
+			count++
+			assert.EqualValues(t, 5-count, version)
+			return nil
+		}
+		err = migrator.Down(ctx, 2)
+		require.NoError(t, err)
+	})
+
+	t.Run("error: migration to target version not found", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn,
+			customMigration{version: 2},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return 2, nil
+		}
+
+		err = migrator.Down(ctx, 1)
+		require.ErrorIs(t, err, migrate.ErrMigrationNotFound)
+	})
+
+	t.Run("error: migrations skipped target version", func(t *testing.T) {
+		ctx := t.Context()
+		migrator, err := migrate.New(conn,
+			customMigration{version: 1},
+			customMigration{version: 3},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, migrator)
+
+		transaction.getCurrentVersion = func(ctx context.Context) (int64, error) {
+			return 3, nil
+		}
+
+		err = migrator.Down(ctx, 2)
 		require.ErrorIs(t, err, migrate.ErrMigrationNotFound)
 	})
 }

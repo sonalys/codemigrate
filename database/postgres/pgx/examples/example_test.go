@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/sonalys/codemigrate/database/postgres/pgx/versioner"
+	"github.com/sonalys/codemigrate/database/postgres/pgx/adapter"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sonalys/codemigrate/migrate"
@@ -17,7 +17,7 @@ func (m *migration_0001) Version() int64 {
 	return 1
 }
 
-func (m *migration_0001) Up(ctx context.Context, tx *versioner.Versioner) error {
+func (m *migration_0001) Up(ctx context.Context, tx *adapter.Versioner) error {
 	_, err := tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS test (id SERIAL PRIMARY KEY, name TEXT)")
 	if err != nil {
 		return err
@@ -25,7 +25,7 @@ func (m *migration_0001) Up(ctx context.Context, tx *versioner.Versioner) error 
 	return nil
 }
 
-func (m *migration_0001) Down(ctx context.Context, tx *versioner.Versioner) error {
+func (m *migration_0001) Down(ctx context.Context, tx *adapter.Versioner) error {
 	_, err := tx.Exec(ctx, "DROP TABLE IF EXISTS test")
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func Test_Example(t *testing.T) {
 	conn, err := pgx.Connect(ctx, "host=localhost port=5432 user=postgres password=postgres dbname=test sslmode=disable")
 	require.NoError(t, err)
 
-	v := versioner.From(conn)
+	v := adapter.From(conn)
 
 	migrator, err := migrate.New(v,
 		&migration_0001{},
@@ -49,4 +49,6 @@ func Test_Example(t *testing.T) {
 	err = migrator.Up(ctx, migrate.Latest)
 	require.NoError(t, err)
 
+	err = migrator.Down(ctx, migrate.Oldest)
+	require.NoError(t, err)
 }
