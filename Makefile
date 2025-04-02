@@ -2,7 +2,9 @@
 
 PKGS_RECURSIVE = $$(go work edit -json | jq -r '.Use[].DiskPath + "/..."')
 PKGS = $$(go work edit -json | jq -r '.Use[].DiskPath')
+
 LINTER = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2
+TESTER = go run gotest.tools/gotestsum@v1.12.1
 
 .PHONY: lint
 lint:
@@ -10,11 +12,11 @@ lint:
 
 .PHONY: test
 test:
-	go test $(PKGS_RECURSIVE)
+	$(TESTER) -- $(PKGS_RECURSIVE)
 
 .PHONY: test-coverage
 test-coverage:
-	go test -cover $(PKGS_RECURSIVE)
+	$(TESTER) -- -cover $(PKGS_RECURSIVE)
 
 tidy:
 	for pkg in $(PKGS); do \
