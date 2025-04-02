@@ -11,18 +11,22 @@ import (
 	"github.com/sonalys/codemigrate/migrate"
 )
 
-type migration struct{}
+type migration_0001 struct{}
 
-func (m *migration) Up(ctx context.Context, tx *versioner.Versioner[*sql.Tx]) error {
-	_, err := tx.Transaction.Exec("CREATE TABLE IF NOT EXISTS test (id SERIAL PRIMARY KEY, name TEXT)")
+func (m *migration_0001) Version() int64 {
+	return 1
+}
+
+func (m *migration_0001) Up(ctx context.Context, tx *versioner.Versioner[*sql.Tx]) error {
+	_, err := tx.Tx.Exec("CREATE TABLE IF NOT EXISTS test (id SERIAL PRIMARY KEY, name TEXT)")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *migration) Down(ctx context.Context, tx *versioner.Versioner[*sql.Tx]) error {
-	_, err := tx.Transaction.Exec("DROP TABLE IF EXISTS test")
+func (m *migration_0001) Down(ctx context.Context, tx *versioner.Versioner[*sql.Tx]) error {
+	_, err := tx.Tx.Exec("DROP TABLE IF EXISTS test")
 	if err != nil {
 		return err
 	}
@@ -37,12 +41,11 @@ func Test_Example(t *testing.T) {
 
 	v := versioner.From(conn)
 
-	controller := migrate.NewMigrationController(map[int]migrate.Migration[*versioner.Versioner[*sql.Tx]]{
-		1: &migration{},
-	})
+	migrator, err := migrate.New(v,
+		&migration_0001{},
+	)
+	require.NoError(t, err)
 
-	targetVersion := 1
-
-	err = migrate.Up(ctx, v, targetVersion, controller)
+	err = migrator.Up(ctx)
 	require.NoError(t, err)
 }
