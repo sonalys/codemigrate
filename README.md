@@ -100,6 +100,55 @@ if err != nil {
 }
 ```
 
+### Use Migrations from Files
+
+You can also define migrations using SQL scripts stored in files. Here's an example:
+
+```go
+import (
+	"context"
+	"embed"
+	"log"
+
+	"github.com/sonalys/codemigrate/database/postgres/pgx/adapter"
+	"github.com/sonalys/codemigrate/migrate"
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+func main() {
+	conn, err := pgx.Connect(context.Background(), "your_connection_string")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db := adapter.From(conn, adapter.WithTableName("custom_version_table"))
+
+	migration, err := adapter.NewScriptMigrationFromFile(
+		1,
+		migrationFiles,
+		"migrations/0001_up.sql",
+		"migrations/0001_down.sql",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	migrator, err := migrate.New(db, migration)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = migrator.Up(context.Background(), migrate.Latest)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+In this example, the `migrations/001_up.sql` and `migrations/001_down.sql` files contain the SQL scripts for applying and reverting the migration, respectively.
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.

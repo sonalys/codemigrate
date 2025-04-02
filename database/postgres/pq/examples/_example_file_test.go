@@ -18,12 +18,12 @@ func Test_Example_File(t *testing.T) {
 
 	v := adapter.From(conn)
 
-	script := bytes.NewBufferString(`CREATE TABLE IF NOT EXISTS test (
+	upScript := bytes.NewBufferString(`CREATE TABLE IF NOT EXISTS test (
 		id SERIAL PRIMARY KEY,
 		name TEXT NOT NULL
 	);`)
 
-	migration, err := adapter.NewScriptMigrationFromReader[*sql.Tx](1, script)
+	migration, err := adapter.NewScriptMigrationFromReader[*sql.Tx](1, upScript, nil)
 	require.NoError(t, err)
 
 	migrator, err := migrate.New(v,
