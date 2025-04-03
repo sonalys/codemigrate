@@ -34,32 +34,38 @@ func (m *migration_0001) Version() int64 {
 
 func (m *migration_0001) Up(ctx context.Context, tx *adapter.Versioner) error {
 	_, err := tx.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS test (
-			id SERIAL PRIMARY KEY,
-			name TEXT,
-			data JSONB NOT NULL DEFAULT '{}'::jsonb
-		)
-	`)
+	CREATE TABLE IF NOT EXISTS test (
+		id SERIAL PRIMARY KEY,
+		name TEXT,
+		data JSONB NOT NULL DEFAULT '{}'::jsonb
+	)
+`)
 	if err != nil {
 		return err
 	}
 
-	// Initialize data with SchemaA
-	initialData := OldSchema{
-		Version: 1,
-		Name:    "example",
-		Value:   123,
-	}
-	dataJSON, err := json.Marshal(initialData)
-	if err != nil {
-		return err
-	}
+	// Insert 1,000 rows into the table
+	for i := 1; i <= 1000; i++ {
+		initialData := OldSchema{
+			Version: 1,
+			Name:    fmt.Sprintf("example_%d", i),
+			Value:   i,
+		}
+		dataJSON, err := json.Marshal(initialData)
+		if err != nil {
+			return err
+		}
 
-	_, err = tx.Exec(ctx, `
+		_, err = tx.Exec(ctx, `
 		INSERT INTO test (name, data) VALUES
-		('example', $1)
-	`, dataJSON)
-	return err
+		($1, $2)
+	`, fmt.Sprintf("example_%d", i), dataJSON)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (m *migration_0001) Down(ctx context.Context, tx *adapter.Versioner) error {
@@ -282,6 +288,9 @@ func Test_Example_Code(t *testing.T) {
 		&migration_0001{},
 		&migration_0002{},
 	)
+	require.NoError(t, err)
+
+	err = migrator.Up(ctx, 1)
 	require.NoError(t, err)
 
 	err = migrator.Up(ctx, migrate.Latest)
