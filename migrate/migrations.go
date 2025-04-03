@@ -90,7 +90,7 @@ func (m migrator[T]) Up(ctx context.Context, targetVersion int64) error {
 	}
 
 	if err := m.handler(ctx, targetVersion, handle); err != nil {
-		return fmt.Errorf("migration failed: %w", err)
+		return fmt.Errorf("upgrade failed: %w", err)
 	}
 
 	return nil
@@ -126,7 +126,7 @@ func (m migrator[T]) Down(ctx context.Context, targetVersion int64) error {
 	}
 
 	if err := m.handler(ctx, targetVersion, handle); err != nil {
-		return fmt.Errorf("migration failed: %w", err)
+		return fmt.Errorf("rollback failed: %w", err)
 	}
 
 	return nil

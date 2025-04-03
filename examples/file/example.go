@@ -1,37 +1,17 @@
 package examples_test
 
 import (
-	"context"
 	"database/sql"
+	"embed"
 	"testing"
 
 	"github.com/sonalys/codemigrate/database/postgres/pq/adapter"
-	"github.com/stretchr/testify/require"
-
 	"github.com/sonalys/codemigrate/migrate"
+	"github.com/stretchr/testify/require"
 )
 
-type migration_0001 struct{}
-
-func (m *migration_0001) Version() int64 {
-	return 1
-}
-
-func (m *migration_0001) Up(ctx context.Context, tx *adapter.Versioner[*sql.Tx]) error {
-	_, err := tx.Tx.Exec("CREATE TABLE IF NOT EXISTS test (id SERIAL PRIMARY KEY, name TEXT)")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *migration_0001) Down(ctx context.Context, tx *adapter.Versioner[*sql.Tx]) error {
-	_, err := tx.Tx.Exec("DROP TABLE IF EXISTS test")
-	if err != nil {
-		return err
-	}
-	return nil
-}
+//go:embed migrations/*.sql
+var fs embed.FS
 
 func Test_Example_Code(t *testing.T) {
 	ctx := t.Context()
@@ -41,8 +21,11 @@ func Test_Example_Code(t *testing.T) {
 
 	v := adapter.From(conn)
 
+	migration_0001, err := adapter.NewScriptMigrationFromFile[*sql.Tx](1, fs, "0001_init.up.sql", "0001_init.down.sql")
+	require.NoError(t, err)
+
 	migrator, err := migrate.New(v,
-		&migration_0001{},
+		migration_0001,
 	)
 	require.NoError(t, err)
 

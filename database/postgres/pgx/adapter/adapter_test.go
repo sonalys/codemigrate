@@ -1,7 +1,6 @@
 package adapter_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -11,7 +10,7 @@ import (
 )
 
 func TestPostgres_Transaction(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	pgContainer, err := postgres.Run(ctx, "postgres:16",
 		postgres.WithDatabase("testdb"),
